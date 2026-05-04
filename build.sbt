@@ -17,19 +17,7 @@ def gcp = "com.google.cloud" % "google-cloud-storage" % "2.64.0"
 
 inThisBuild {
   List(
-    // version is set dynamically by sbt-dynver, but let's adjust it
-    version := {
-      val curVersion = version.value
-      def dynVer(out: sbtdynver.GitDescribeOutput): String = {
-        def tagVersion = out.ref.dropPrefix
-        if (out.isCleanAfterTag) tagVersion
-        else if (System.getenv("CI") == null) s"$tagVersion-next-SNAPSHOT" // modified for local builds
-        else if (out.commitSuffix.distance == 0) tagVersion
-        else if (sys.props.contains("backport.release")) tagVersion
-        else curVersion
-      }
-      dynverGitDescribeOutput.value.mkVersion(dynVer, curVersion)
-    },
+    version := "1.3.0-WASM",
     organization := "org.scalameta",
     homepage := Some(url("https://github.com/scalameta/munit")),
     licenses :=
