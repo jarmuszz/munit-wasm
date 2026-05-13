@@ -4,6 +4,10 @@ import java.net.URI
 import java.util
 
 import scala.collection.JavaConverters._
+import scala.scalajs.wasi.filesystem.types.PathFlags
+
+import munit.internal.io.JSIO.path
+import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind, ModuleKind}
 
 // Rough implementation of java.nio.Path, should work similarly for the happy
 // path but has undefined behavior for error handling.
@@ -17,30 +21,59 @@ case class MunitPath(filename: String) {
       .slice(adjustIndex(beginIndex), adjustIndex(endIndex)).mkString
   )
   def toFile: File = new File(filename)
-  def isAbsolute: Boolean = JSIO.path match {
-    case Some(path) => path.isAbsolute(filename).asInstanceOf[Boolean]
-    case None => filename.startsWith(File.separator)
-  }
+  def isAbsolute: Boolean = 
+    linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
+      // All paths in WASI p2 are relative
+      false
+    } {
+      JSIO.path match {
+        case Some(path) => path.isAbsolute(filename).asInstanceOf[Boolean]
+        case None => filename.startsWith(File.separator)
+      }
+    }
+
   def getName(index: Int): MunitPath = MunitPath(
     filename.split(escapedSeparator).lift(adjustIndex(index))
       .getOrElse(throw new IllegalArgumentException)
   )
-  def getParent: MunitPath = JSIO.path match {
-    case Some(path) => MunitPath(path.dirname(filename).asInstanceOf[String])
-    case None => throw new UnsupportedOperationException(
-        "Path.getParent() is only supported in Node.js"
-      )
+  def getParent: MunitPath = linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
+    val path: String = filename.patch(filename.lastIndexOf('/'), "", 1)
+    MunitPath(path)
+  } {
+    JSIO.path match {
+      case Some(path) => MunitPath(path.dirname(filename).asInstanceOf[String])
+      case None => throw new UnsupportedOperationException(
+          "Path.getParent() is only supported in Node.js"
+        )
+      }
   }
 
   def toAbsolutePath: MunitPath =
     if (isAbsolute) this else MunitPath.workingDirectory.resolve(this)
-  def relativize(other: MunitPath): MunitPath = JSIO.path match {
-    case Some(path) =>
-      MunitPath(path.relative(filename, other.toString()).asInstanceOf[String])
-    case None => throw new UnsupportedOperationException(
-        "Path.relativize() is only supported in Node.js"
-      )
-  }
+
+  def relativize(other: MunitPath): MunitPath = 
+    linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
+      val leading = other.filename
+
+      if (leading.size >= filename.size)
+        throw new IllegalArgumentException
+
+      val (lhs, rhs) = filename.splitAt(leading.size)
+      println(lhs, rhs)
+
+      if (lhs == leading)
+        MunitPath(rhs.tail)
+      else
+        throw new IllegalArgumentException
+    } {
+      JSIO.path match {
+        case Some(path) =>
+          MunitPath(path.relative(filename, other.toString()).asInstanceOf[String])
+        case None => throw new UnsupportedOperationException(
+            "Path.relativize() is only supported in Node.js"
+          )
+        }
+    }
   def getNameCount: Int = {
     val strippeddrive =
       if (filename.length > 1 && filename(1) == ':') filename.substring(2)
@@ -50,19 +83,31 @@ case class MunitPath(filename: String) {
     if (remaining.isEmpty) first.length else remaining.length
   }
   def toUri: URI = toFile.toURI
-  def getFileName(): MunitPath = JSIO.path match {
-    case Some(path) => MunitPath(path.basename(filename).asInstanceOf[String])
-    case None => throw new UnsupportedOperationException(
-        "Path.getFileName() is only supported in Node.js"
-      )
-  }
-  def getRoot: MunitPath = if (!isAbsolute) null else MunitPath(File.separator)
-  def normalize(): MunitPath = JSIO.path match {
-    case Some(path) => MunitPath(path.normalize(filename).asInstanceOf[String])
-    case None => throw new UnsupportedOperationException(
-        "Path.normalize() is only supported in Node.js"
-      )
-  }
+  def getFileName(): MunitPath = 
+    linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
+      MunitPath(filename.split('/').last)
+    } {
+      JSIO.path match {
+        case Some(path) => MunitPath(path.basename(filename).asInstanceOf[String])
+        case None => throw new UnsupportedOperationException(
+            "Path.getFileName() is only supported in Node.js"
+          )
+      }
+    }
+  def getRoot: MunitPath =
+    // TODO: How should this behave on WASI?
+    if (!isAbsolute) null else MunitPath(File.separator)
+  def normalize(): MunitPath =
+    linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
+      this // TODO: normalize
+    } {
+      JSIO.path match {
+        case Some(path) => MunitPath(path.normalize(filename).asInstanceOf[String])
+        case None => throw new UnsupportedOperationException(
+            "Path.normalize() is only supported in Node.js"
+          )
+      }
+    }
   def endsWith(other: MunitPath): Boolean = endsWith(other.toString)
   def endsWith(other: String): Boolean = paths(filename).endsWith(paths(other))
   // JSPath.resolve(relpath, relpath) produces an absolute path from cwd.
@@ -71,24 +116,40 @@ case class MunitPath(filename: String) {
     if (isAbsolute) resolved else MunitPath.workingDirectory.relativize(resolved)
   def resolveSibling(other: MunitPath): MunitPath =
     resolveSibling(other.toString)
-  def resolveSibling(other: String): MunitPath = JSIO.path match {
-    case Some(path) => adjustResolvedPath(MunitPath(
-        path.resolve(path.dirname(filename).asInstanceOf[String], other)
-          .asInstanceOf[String]
-      ))
-    case None => throw new UnsupportedOperationException(
-        "Path.normalize() is only supported in Node.js"
-      )
-  }
+  def resolveSibling(other: String): MunitPath =
+    linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
+      val path: String = filename.patch(filename.lastIndexOf('/'), "", 1)
+      MunitPath(path + '/' + other)
+    } {
+      JSIO.path match {
+        case Some(path) => adjustResolvedPath(MunitPath(
+            path.resolve(path.dirname(filename).asInstanceOf[String], other)
+              .asInstanceOf[String]
+          ))
+        case None => throw new UnsupportedOperationException(
+            "Path.normalize() is only supported in Node.js"
+          )
+      }
+    }
   def resolve(other: MunitPath): MunitPath = resolve(other.toString)
-  def resolve(other: String): MunitPath = JSIO.path match {
-    case Some(path) => adjustResolvedPath(
-        MunitPath(path.resolve(filename, other).asInstanceOf[String])
-      )
-    case None => throw new UnsupportedOperationException(
-        "Path.normalize() is only supported in Node.js"
-      )
-  }
+  def resolve(other: String): MunitPath =
+    linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
+      val str =
+        if (filename.last == '/')
+          filename.dropRight(1) 
+        else
+          filename
+      MunitPath(filename + "/" + other)
+    } {
+      JSIO.path match {
+        case Some(path) => adjustResolvedPath(
+            MunitPath(path.resolve(filename, other).asInstanceOf[String])
+          )
+        case None => throw new UnsupportedOperationException(
+            "Path.normalize() is only supported in Node.js"
+          )
+      }
+    }
   def startsWith(other: MunitPath): Boolean = startsWith(other.toString)
   def startsWith(other: String): Boolean = paths(filename)
     .startsWith(paths(other))
@@ -99,5 +160,10 @@ case class MunitPath(filename: String) {
 }
 
 object MunitPath {
-  def workingDirectory: MunitPath = MunitPath(JSIO.cwd())
+  def workingDirectory: MunitPath = MunitPath(linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
+      // TODO: How should this behave?
+      "/"
+    } {
+      JSIO.cwd()
+  })
 }

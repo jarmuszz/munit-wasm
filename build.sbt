@@ -214,6 +214,11 @@ lazy val tests = crossProject(JSPlatform, JVMPlatform, NativePlatform)
         new org.scalajs.jsenv.nodejs.NodeJSEnv
       }
     },
+    scalaJSLinkerConfig ~= { _
+      .withPrettyPrint(true)
+      .withExperimentalUseWebAssembly(true)
+      .withModuleKind(ModuleKind.WasmComponent) 
+    }
   ).jvmSettings(
     sharedJVMSettings,
     fork := true,
