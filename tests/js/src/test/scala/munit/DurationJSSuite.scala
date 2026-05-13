@@ -12,7 +12,6 @@ class DurationJSTestSuite extends FunSuite {
 }
 
 class DurationJSSuite extends FunSuite {
-  /*
   private def run(fullyQualifiedName: String): List[Event] = {
     val framework = new Framework()
     val runner: Runner = framework
@@ -39,5 +38,4 @@ class DurationJSSuite extends FunSuite {
       assert(event.duration != -1L, "duration should be defined")
     )
   }
-  */
 }
