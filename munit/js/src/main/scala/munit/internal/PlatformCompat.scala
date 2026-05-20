@@ -8,11 +8,11 @@ import java.util.concurrent.TimeoutException
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Awaitable, ExecutionContext, Future, Promise}
+import scala.scalajs.concurrent.QueueExecutionContext.SingleThreadedExecutionContext
 import scala.scalajs.js.timers
 import scala.scalajs.reflect.Reflect
-import scala.util.control.NonFatal
-
 import scala.scalajs.wasi
+import scala.util.control.NonFatal
 
 object WasiPlatformCompat {
 
@@ -24,7 +24,9 @@ object WasiPlatformCompat {
       eventHandler: EventHandler,
       loggers: Array[Logger],
   ): Future[Unit] = {
-    task.execute(eventHandler, loggers, _ => ())
+    val ec = scala.concurrent.ExecutionContext.global
+    val run: Runnable = () => task.execute(eventHandler, loggers, _ => ())
+    ec.execute(run)
     Future.successful(())
   }
 
@@ -32,8 +34,25 @@ object WasiPlatformCompat {
       startFuture: () => Future[T],
       duration: Duration,
       ec: ExecutionContext,
-  ): Future[T] =
-    startFuture()
+  ): Future[T] = {
+    val start = System.currentTimeMillis()
+    val ec = scala.concurrent.ExecutionContext.global
+    val stec = ec.asInstanceOf[SingleThreadedExecutionContext]
+
+    val out = Promise[T]()
+
+    val run: Runnable = () => startFuture().onComplete(out.tryComplete)(ec)
+    ec.execute(run)
+
+    while (
+      !out.isCompleted &&
+      System.currentTimeMillis() <= start + duration.toMillis
+    ) stec.loop()
+
+    if (out.isCompleted) out.future
+    else out.failure(new TimeoutException(s"test timed out after $duration"))
+      .future
+  }
 
   def setTimeout(ms: Int)(body: => Unit): () => Unit = {
     wasi.clocks.monotonic_clock.subscribeDuration(ms.toLong * 10000000).block()
@@ -65,6 +84,7 @@ object JSPlatformCompat {
   ): Future[T] =
     if (!duration.isFinite) startFuture()
     else {
+      println("wha..")
       val onComplete = Promise[T]()
       val timeoutHandle = timers
         .setTimeout(duration.toMillis)(onComplete.tryFailure(
@@ -88,14 +108,11 @@ object JSPlatformCompat {
   }
 }
 object PlatformCompat {
-  import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind, ModuleKind}
+  import scala.scalajs.LinkingInfo.{ModuleKind, linkTimeIf, moduleKind}
 
-  val executionContext: ExecutionContext =
-    linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
-      WasiPlatformCompat.executionContext
-    } {
-      JSPlatformCompat.executionContext
-    }
+  val executionContext: ExecutionContext = linkTimeIf(
+    moduleKind == ModuleKind.WasmComponent
+  )(WasiPlatformCompat.executionContext)(JSPlatformCompat.executionContext)
 
   def awaitResult[T](awaitable: Awaitable[T]): T = Await
     .result(awaitable, Duration.Inf)
@@ -104,30 +121,22 @@ object PlatformCompat {
       task: Task,
       eventHandler: EventHandler,
       loggers: Array[Logger],
-  ): Future[Unit] = 
-    linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
-      WasiPlatformCompat.executeAsync(task, eventHandler, loggers)
-    } {
-      JSPlatformCompat.executeAsync(task, eventHandler, loggers)
-    }
+  ): Future[Unit] = linkTimeIf(moduleKind == ModuleKind.WasmComponent)(
+    WasiPlatformCompat.executeAsync(task, eventHandler, loggers)
+  )(JSPlatformCompat.executeAsync(task, eventHandler, loggers))
 
   def waitAtMost[T](
       startFuture: () => Future[T],
       duration: Duration,
       ec: ExecutionContext,
-  ): Future[T] =
-    linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
-      WasiPlatformCompat.waitAtMost(startFuture, duration, ec)
-    } {
-      JSPlatformCompat.waitAtMost(startFuture, duration, ec)
-    }
+  ): Future[T] = linkTimeIf(moduleKind == ModuleKind.WasmComponent)(
+    WasiPlatformCompat.waitAtMost(startFuture, duration, ec)
+  )(JSPlatformCompat.waitAtMost(startFuture, duration, ec))
 
-  def setTimeout(ms: Int)(body: => Unit): () => Unit = 
-    linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
+  def setTimeout(ms: Int)(body: => Unit): () => Unit =
+    linkTimeIf(moduleKind == ModuleKind.WasmComponent)(
       WasiPlatformCompat.setTimeout(ms)(body)
-    } {
-      JSPlatformCompat.setTimeout(ms)(body)
-    }
+    )(JSPlatformCompat.setTimeout(ms)(body))
 
   // Scala.js does not support looking up annotations at runtime.
   def isIgnoreSuite(cls: Class[_]): Boolean = false
