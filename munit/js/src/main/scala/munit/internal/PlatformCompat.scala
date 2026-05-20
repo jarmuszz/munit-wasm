@@ -36,7 +36,7 @@ object WasiPlatformCompat {
     startFuture()
 
   def setTimeout(ms: Int)(body: => Unit): () => Unit = {
-    wasi.clocks.monotonic_clock.subscribeDuration(ms).block()
+    wasi.clocks.monotonic_clock.subscribeDuration(ms.toLong * 10000000).block()
     body
 
     () => ()
