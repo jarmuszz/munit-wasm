@@ -2,6 +2,10 @@ import scala.collection.mutable
 
 import sbtcrossproject.CrossPlugin.autoImport.crossProject
 
+ThisBuild / resolvers +=
+  "Sonatype Central Snapshots"
+    .at("https://central.sonatype.com/repository/maven-snapshots/")
+
 def previousVersion = "1.0.0-RC1"
 
 def scala213 = "2.13.18"
@@ -145,9 +149,9 @@ lazy val munit = crossProject(JSPlatform, JVMPlatform, NativePlatform).settings(
 ).jsConfigure(sharedJSConfigure).jsSettings(
   sharedJSSettings,
   libraryDependencies ++= List(
-    ("org.scala-js" %% "scalajs-test-interface" % scalaJSVersion)
+    ("org.scala-js" %% "scalajs-test-interface" % "1.21.0")
       .cross(CrossVersion.for3Use2_13),
-    ("org.scala-js" %% "scalajs-junit-test-runtime" % scalaJSVersion)
+    ("org.scala-js" %% "scalajs-junit-test-runtime" % "1.21.0")
       .cross(CrossVersion.for3Use2_13),
   ),
 ).jvmSettings(
@@ -214,11 +218,10 @@ lazy val tests = crossProject(JSPlatform, JVMPlatform, NativePlatform)
         new org.scalajs.jsenv.nodejs.NodeJSEnv
       }
     },
-    scalaJSLinkerConfig ~= { _
-      .withPrettyPrint(true)
-      .withExperimentalUseWebAssembly(true)
-      .withModuleKind(ModuleKind.WasmComponent) 
-    }
+    scalaJSLinkerConfig ~= {
+      _.withPrettyPrint(true).withExperimentalUseWebAssembly(true)
+        .withModuleKind(ModuleKind.WasmComponent)
+    },
   ).jvmSettings(
     sharedJVMSettings,
     fork := true,
