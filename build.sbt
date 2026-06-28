@@ -162,9 +162,9 @@ lazy val munit = crossProject(JSPlatform, JVMPlatform, NativePlatform).settings(
 ).jsConfigure(sharedJSConfigure).jsSettings(
   sharedJSSettings,
   libraryDependencies ++= List(
-    ("org.scala-js" %% "scalajs-test-interface" % "1.21.0")
+    ("io.github.scala-wasm" %% "scalajs-test-interface" % scalaJSVersion)
       .cross(CrossVersion.for3Use2_13),
-    ("org.scala-js" %% "scalajs-junit-test-runtime" % "1.21.0")
+    ("io.github.scala-wasm" %% "scalajs-junit-test-runtime" % scalaJSVersion)
       .cross(CrossVersion.for3Use2_13),
     ("org.portable-scala" %%% "portable-scala-reflect" %
       portableScalaReflectVersion).cross(CrossVersion.for3Use2_13),
