@@ -239,11 +239,15 @@ lazy val tests = crossProject(JSPlatform, JVMPlatform, NativePlatform)
         new org.scalajs.jsenv.nodejs.NodeJSEnv
       }
     },
-    scalaJSLinkerConfig ~= { _
+    Test / scalaJSLinkerConfig ~= { _
       .withPrettyPrint(true)
       .withESFeatures { _
         .withESVersion(ESVersion.ES2022)
         .withUseWebAssembly(true)
+      }
+      .withWasmFeatures { _
+        .withWitDirectory(None)
+        .withWitWorld(None)
       }
       .withModuleKind(ModuleKind.WasmComponent)
     },

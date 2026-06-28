@@ -59,7 +59,6 @@ case class MunitPath(filename: String) {
         throw new IllegalArgumentException
 
       val (lhs, rhs) = filename.splitAt(leading.size)
-      println(lhs, rhs)
 
       if (lhs == leading)
         MunitPath(rhs.tail)

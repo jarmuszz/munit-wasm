@@ -55,7 +55,7 @@ class File(path: String/*, private val descriptor: Option[Descriptor]*/) {
 object File {
   def listRoots(): Array[File] = 
     linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
-      wasi.filesystem.preopens.getDirectories.map { tuple =>
+      wasi.filesystem.preopens.getDirectories().map { tuple =>
         new File(tuple._2)
       }
     } {
