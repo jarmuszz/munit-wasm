@@ -1,3 +1,4 @@
+import org.scalajs.linker.interface.ESVersion
 import scala.collection.mutable
 
 import sbtcrossproject.CrossPlugin.autoImport.crossProject
@@ -12,12 +13,13 @@ def scala213 = "2.13.18"
 
 def scala212 = "2.12.21"
 
-def scala3 = "3.3.7"
+def scala3 = "3.3.8"
 
-def scala3next = "3.8.2"
+def scala3next = "3.8.4"
 
 def junitVersion = "4.13.2"
-def gcp = "com.google.cloud" % "google-cloud-storage" % "2.64.0"
+def portableScalaReflectVersion = "1.1.3"
+def gcp = "com.google.cloud" % "google-cloud-storage" % "2.69.0"
 
 inThisBuild {
   List(
@@ -47,6 +49,14 @@ addCommandAlias(
 addCommandAlias(
   "scalafixCheckAll",
   s"; ++$scala212 ;  scalafixEnable ; scalafix --check ; test:scalafix --check",
+)
+addCommandAlias(
+  "checkDiscoveryNative",
+  s"; +testsNative/run ; ++$scala3next! ; testsNative/run",
+)
+addCommandAlias(
+  "checkDiscoveryJS",
+  s"; +testsJS/run ; ++$scala3next! ; testsJS/run",
 )
 val isPreScala213 = Set[Option[(Long, Long)]](Some((2, 11)), Some((2, 12)))
 val scala2Versions = List(scala213, scala212)
@@ -144,8 +154,11 @@ lazy val munit = crossProject(JSPlatform, JVMPlatform, NativePlatform).settings(
   } % Provided),
 ).nativeConfigure(sharedNativeConfigure).nativeSettings(
   sharedNativeSettings,
-  libraryDependencies ++=
-    List("org.scala-native" %%% "test-interface" % nativeVersion),
+  libraryDependencies ++= List(
+    "org.scala-native" %%% "test-interface-sbt-defs" % nativeVersion,
+    ("org.portable-scala" %%% "portable-scala-reflect" %
+      portableScalaReflectVersion).cross(CrossVersion.for3Use2_13),
+  ),
 ).jsConfigure(sharedJSConfigure).jsSettings(
   sharedJSSettings,
   libraryDependencies ++= List(
@@ -153,10 +166,16 @@ lazy val munit = crossProject(JSPlatform, JVMPlatform, NativePlatform).settings(
       .cross(CrossVersion.for3Use2_13),
     ("org.scala-js" %% "scalajs-junit-test-runtime" % "1.21.0")
       .cross(CrossVersion.for3Use2_13),
+    ("org.portable-scala" %%% "portable-scala-reflect" %
+      portableScalaReflectVersion).cross(CrossVersion.for3Use2_13),
   ),
 ).jvmSettings(
   sharedJVMSettings,
-  libraryDependencies ++= List("junit" % "junit" % junitVersion),
+  libraryDependencies ++= List(
+    "junit" % "junit" % junitVersion,
+    ("org.portable-scala" %%% "portable-scala-reflect" %
+      portableScalaReflectVersion).cross(CrossVersion.for3Use2_13),
+  ),
 ).jvmConfigure(_.dependsOn(junit)).dependsOn(munitDiff)
 
 lazy val munitJVM = munit.jvm
@@ -208,6 +227,8 @@ lazy val tests = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   ).nativeConfigure(sharedNativeConfigure).nativeSettings(sharedNativeSettings)
   .jsConfigure(sharedJSConfigure).jsSettings(
     sharedJSSettings,
+    Compile / mainClass := Some("munit.ReflectiveInstantiationCheck"),
+    scalaJSUseMainModuleInitializer := true,
     jsEnv := {
       val log = sLog.value
       if (Option(System.getenv("GITHUB_JOB")).contains("jsdom")) {
@@ -218,9 +239,13 @@ lazy val tests = crossProject(JSPlatform, JVMPlatform, NativePlatform)
         new org.scalajs.jsenv.nodejs.NodeJSEnv
       }
     },
-    scalaJSLinkerConfig ~= {
-      _.withPrettyPrint(true).withExperimentalUseWebAssembly(true)
-        .withModuleKind(ModuleKind.WasmComponent)
+    scalaJSLinkerConfig ~= { _
+      .withPrettyPrint(true)
+      .withESFeatures { _
+        .withESVersion(ESVersion.ES2022)
+        .withUseWebAssembly(true)
+      }
+      .withModuleKind(ModuleKind.WasmComponent)
     },
   ).jvmSettings(
     sharedJVMSettings,
@@ -238,7 +263,7 @@ lazy val docs = project.in(file("munit-docs")).dependsOn(munitJVM)
     sharedSettings,
     publish / skip := true,
     moduleName := "munit-docs",
-    libraryDependencies += "org.scalameta" %% "munit-scalacheck" % "1.2.0",
+    libraryDependencies += "org.scalameta" %% "munit-scalacheck" % "1.3.0",
     crossScalaVersions := List(scala213, scala212),
     test := {},
     mdocOut := (ThisBuild / baseDirectory).value / "website" / "target" / "docs",
