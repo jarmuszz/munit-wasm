@@ -23,7 +23,7 @@ def gcp = "com.google.cloud" % "google-cloud-storage" % "2.69.0"
 
 inThisBuild {
   List(
-    version := "1.3.0-WASM",
+    version := "1.3.3-WASM",
     organization := "org.scalameta",
     homepage := Some(url("https://github.com/scalameta/munit")),
     licenses :=
