@@ -7,7 +7,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
 import org.junit.runner.Description;
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
@@ -197,7 +196,9 @@ final class EventDispatcher extends RunListener {
   }
 
   private boolean recordStartTime(String label) {
-    return null == startTimes.putIfAbsent(label, System.currentTimeMillis());
+    // Suite-level descriptions have a null method name, and ConcurrentHashMap
+    // forbids null keys, so guard against it.
+    return label != null && null == startTimes.putIfAbsent(label, System.currentTimeMillis());
   }
 
   private boolean recordStartTime(Description description) {
@@ -205,7 +206,9 @@ final class EventDispatcher extends RunListener {
   }
 
   private Long elapsedTime(String label) {
-    Long startTime = startTimes.get(label);
+    // Suite-level descriptions have a null method name, and ConcurrentHashMap
+    // forbids null keys, so guard against it.
+    Long startTime = label == null ? null : startTimes.get(label);
     return startTime == null ? 0L : System.currentTimeMillis() - startTime;
   }
 
@@ -243,7 +246,8 @@ final class EventDispatcher extends RunListener {
   }
 
   void testExecutionFailed(String testName, Throwable err) {
-    post(RunSettings.LogMode.ERROR,
+    post(
+        RunSettings.LogMode.ERROR,
         new Event(
             Ansi.c(testName, Ansi.ERRMSG), settings.buildErrorMessage(err), Status.Error, 0L, err) {
           void logTo(RichLogger logger) {
