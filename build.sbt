@@ -23,7 +23,7 @@ def gcp = "com.google.cloud" % "google-cloud-storage" % "2.71.0"
 
 inThisBuild {
   List(
-    version := "1.3.3-WASM",
+    version := "1.3.5-WASM",
     organization := "org.scalameta",
     homepage := Some(url("https://github.com/scalameta/munit")),
     licenses :=
@@ -186,7 +186,10 @@ val munitOnJS: Project => Project = onJS.settings(
     // Published with a plain binary suffix only
     val binary = if (isScala3Setting.value) "2.13" else scalaBinaryVersion.value
     def dep(name: String) = "io.github.scala-wasm" % s"${name}_$binary" % scalaJSVersion
-    List(dep("scalajs-test-interface"), dep("scalajs-junit-test-runtime"))
+    List(
+      dep("scalajs-test-interface"),
+      dep("scalajs-junit-test-runtime"),
+    )
   },
 )
 
