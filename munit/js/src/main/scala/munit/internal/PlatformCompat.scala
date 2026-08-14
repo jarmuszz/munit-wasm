@@ -12,7 +12,7 @@ import scala.scalajs.js.timers
 import scala.scalajs.reflect.Reflect
 import scala.util.control.NonFatal
 
-import scala.scalajs.wasi
+import dev.fixpoint.wasi4s.generated.{p2 => wasi}
 
 object WasiPlatformCompat {
 

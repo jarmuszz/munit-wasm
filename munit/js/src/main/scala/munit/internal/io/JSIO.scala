@@ -4,8 +4,8 @@ import java.util.Optional
 import munit.internal.io.File.separator
 import scala.scalajs.js
 import scala.util.Try
-import scala.scalajs.wasi
-import scala.scalajs.wasi.filesystem.types.{Descriptor, DescriptorType, DirectoryEntryStream, DirectoryEntry, DescriptorFlags, OpenFlags, PathFlags, ErrorCode}
+import dev.fixpoint.wasi4s.generated.p2
+import dev.fixpoint.wasi4s.generated.p2.filesystem.types.{Descriptor, DescriptorType, DirectoryEntryStream, DirectoryEntry, DescriptorFlags, OpenFlags, PathFlags, ErrorCode}
 import scala.scalajs.wit
 import scala.scalajs.wit.Ok
 import scala.scalajs.wit.Err
@@ -38,7 +38,7 @@ object WasiIO {
   def getDescriptor(path: String): Option[Descriptor] = {
     val (preopen, tail) = path.splitAt(path.indexOf('/'))
 
-    val preopens = wasi.filesystem.preopens.getDirectories()
+    val preopens = p2.filesystem.preopens.getDirectories()
 
     preopens.find(_._2 == preopen).flatMap {
         _._1.openAt(

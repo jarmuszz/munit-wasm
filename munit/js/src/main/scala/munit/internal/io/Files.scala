@@ -8,9 +8,9 @@ import scala.collection.mutable
 
 import scala.scalajs.js
 import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind, ModuleKind}
-import scala.scalajs.wasi.filesystem.types.{Descriptor, DescriptorType, DirectoryEntryStream, DirectoryEntry, DescriptorFlags, OpenFlags, PathFlags, ErrorCode}
-import scala.scalajs.wasi.io.streams.{InputStream, StreamError}
-import scala.scalajs.wasi
+import dev.fixpoint.wasi4s.generated.p2.filesystem.types.{Descriptor, DescriptorType, DirectoryEntryStream, DirectoryEntry, DescriptorFlags, OpenFlags, PathFlags, ErrorCode}
+import dev.fixpoint.wasi4s.generated.p2.io.streams.{InputStream, StreamError}
+import dev.fixpoint.wasi4s.generated.p2
 import scala.scalajs.wit.{Ok, Err}
 
 object Files {
@@ -24,7 +24,7 @@ object Files {
       val stringPath = path.toString
       val (preopen, tail) = stringPath.splitAt(stringPath.indexOf('/'))
 
-      val preopens = wasi.filesystem.preopens.getDirectories()
+      val preopens = p2.filesystem.preopens.getDirectories()
       preopens.find(_._2 == preopen) match {
         case None => throw new Exception("No such file")
         case Some(pair) =>
@@ -50,7 +50,8 @@ object Files {
                       //throw new Exception(e.value.toString)
                       ab.result()
                     case ok: Ok[Array[Byte]] =>
-                      loop(ab.addAll(ok.value))
+                      ab ++= ok.value
+                      loop(ab)
                   }
 
                   loop(mutable.ArrayBuilder.make[Byte])

@@ -189,6 +189,7 @@ val munitOnJS: Project => Project = onJS.settings(
     List(
       dep("scalajs-test-interface"),
       dep("scalajs-junit-test-runtime"),
+      "dev.fixpoint" %% "wasi4s" % "0.1.0-wasm1-SNAPSHOT"
     )
   },
 )

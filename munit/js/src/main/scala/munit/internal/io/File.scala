@@ -3,8 +3,8 @@ package munit.internal.io
 import java.net.URI
 
 import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind, ModuleKind}
-import scala.scalajs.wasi
-import scala.scalajs.wasi.filesystem.types.Descriptor
+import dev.fixpoint.wasi4s.generated.p2
+import dev.fixpoint.wasi4s.generated.p2.filesystem.types.Descriptor
 
 // obtained implementation by experimentation on the JDK.
 class File(path: String/*, private val descriptor: Option[Descriptor]*/) {
@@ -55,7 +55,7 @@ class File(path: String/*, private val descriptor: Option[Descriptor]*/) {
 object File {
   def listRoots(): Array[File] = 
     linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
-      wasi.filesystem.preopens.getDirectories().map { tuple =>
+      p2.filesystem.preopens.getDirectories().map { tuple =>
         new File(tuple._2)
       }
     } {

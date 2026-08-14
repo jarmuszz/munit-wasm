@@ -4,7 +4,7 @@ import java.net.URI
 import java.util
 
 import scala.collection.JavaConverters._
-import scala.scalajs.wasi.filesystem.types.PathFlags
+import dev.fixpoint.wasi4s.generated.p2.filesystem.types.PathFlags
 
 import munit.internal.io.JSIO.path
 import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind, ModuleKind}
