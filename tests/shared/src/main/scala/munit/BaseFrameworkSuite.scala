@@ -55,7 +55,7 @@ abstract class BaseFrameworkSuite extends BaseSuite {
             events.append("\n")
           } catch {
             case NonFatal(e) =>
-              e.printStackTrace()
+              PlatformCompat.printStackTrace(e)
               events.append(s"unexpected error: $e")
           }
       }

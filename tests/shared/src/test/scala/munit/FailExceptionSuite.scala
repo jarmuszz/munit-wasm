@@ -1,5 +1,7 @@
 package munit
 
+import munit.internal.PlatformCompat
+
 class FailExceptionSuite extends BaseSuite {
   test("assertion-error") {
     val e = intercept[AssertionError](fail("hello world!"))
@@ -8,7 +10,7 @@ class FailExceptionSuite extends BaseSuite {
 
   test("assertion-error-no-exception")(
     try {
-      intercept[AssertionError](println("throwing no exception!"))
+      intercept[AssertionError](PlatformCompat.println("throwing no exception!"))
       throw new Exception("should not reach here")
     } catch {
       case e: FailException =>

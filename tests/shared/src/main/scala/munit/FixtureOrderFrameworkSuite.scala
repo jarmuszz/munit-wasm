@@ -1,7 +1,13 @@
 package munit
 
+import munit.internal.PlatformCompat
+
 class FixtureOrderFrameworkSuite extends FunSuite {
-  def println(msg: String): Unit = TestingConsole.out.println(msg)
+  def println(msg: String): Unit = 
+    if (PlatformCompat.isJS)
+      PlatformCompat.println(msg)
+    else
+      TestingConsole.out.println(msg)
   private def fixture(name: String) = new Fixture[Int](name) {
     def apply(): Int = 1
     override def beforeAll(): Unit = println(s"beforeAll($name)")

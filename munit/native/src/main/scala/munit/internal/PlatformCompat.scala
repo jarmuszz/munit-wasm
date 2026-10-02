@@ -9,7 +9,7 @@ import java.util.concurrent.{
   Executors, ThreadFactory, TimeUnit, TimeoutException,
 }
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{Await, Awaitable, ExecutionContext, Future, Promise}
 import scala.scalanative.meta.LinktimeInfo.isMultithreadingEnabled
 import scala.scalanative.reflect.Reflect
@@ -32,12 +32,20 @@ private object LazyMultithreadingSupport {
 object PlatformCompat {
   import LazyMultithreadingSupport._
 
+  def nanoTime() = System.nanoTime()
+
+  def println(msg: String) = scala.Console.println(msg)
+
+  def printStackTrace(t: Throwable) = t.printStackTrace()
+
   val executionContext: ExecutionContext = ExecutionContext.global
 
   def awaitResult[T](awaitable: Awaitable[T]): T = {
     if (!isMultithreadingEnabled) Thread.`yield`() // invokes SN 0.4 scalanative.runtime.loop()
     Await.result(awaitable, Duration.Inf)
   }
+
+  def sleep(duration: FiniteDuration): Unit = Thread.sleep(duration.toMillis)
 
   def executeAsync(
       task: Task,

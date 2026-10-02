@@ -5,6 +5,10 @@ import scala.collection.mutable
 import org.junit.runner.notification.RunNotifier
 import org.junit.runner.{Description, notification}
 
+import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind, ModuleKind}
+
+import munit.internal.PlatformCompat
+
 class MUnitRunNotifier(reporter: JUnitReporter) extends RunNotifier {
   var startedTimestamp = 0L
   val isReported: mutable.Set[Description] = mutable.Set.empty[Description]
@@ -13,10 +17,10 @@ class MUnitRunNotifier(reporter: JUnitReporter) extends RunNotifier {
   override def fireTestSuiteFinished(description: Description): Unit =
     reporter.reportTestSuiteFinished()
   override def fireTestStarted(description: Description): Unit = {
-    startedTimestamp = System.nanoTime()
+    startedTimestamp = PlatformCompat.nanoTime()
     reporter.reportTestStarted(description.getMethodName)
   }
-  private def elapsedNanos(): Long = System.nanoTime() - startedTimestamp
+  private def elapsedNanos(): Long = PlatformCompat.nanoTime() - startedTimestamp
   override def fireTestIgnored(description: Description): Unit = {
     isReported += description
     val pendingSuffixes = {

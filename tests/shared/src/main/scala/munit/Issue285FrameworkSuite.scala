@@ -6,7 +6,11 @@ import scala.concurrent.Promise
 import scala.concurrent.duration.Duration
 
 class Issue285FrameworkSuite extends FunSuite {
-  def println(msg: String): Unit = TestingConsole.out.println(msg)
+  def println(msg: String): Unit =
+    if (PlatformCompat.isJS)
+      PlatformCompat println(msg)
+    else
+      TestingConsole.out.println(msg)
   val hello: Fixture[Unit] = new Fixture[Unit]("hello") {
     def apply(): Unit = ()
     override def beforeAll(): Unit = println("beforeAll")

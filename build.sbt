@@ -1,38 +1,27 @@
 import org.scalajs.linker.interface.ESVersion
 import scala.collection.mutable
 
+import com.typesafe.tools.mima.core.*
+
 import Extensions._
-
-ThisBuild / resolvers +=
-  "Sonatype Central Snapshots"
-    .at("https://central.sonatype.com/repository/maven-snapshots/")
-
-def previousVersion = "1.0.0-RC1"
-
-def scala213 = "2.13.18"
-
-def scala212 = "2.12.21"
-
-def scala3 = "3.3.8"
-
-def scala3next = "3.8.4"
 
 def junitVersion = "4.13.2"
 
 def gcp = "com.google.cloud" % "google-cloud-storage" % "2.71.0"
 
+
 inThisBuild {
   List(
     version := "1.3.5-WASM",
     organization := "org.scalameta",
-    homepage := Some(url("https://github.com/scalameta/munit")),
+    homepage := Some(uri("https://github.com/scalameta/munit")),
     licenses :=
-      List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+      List("Apache-2.0" -> uri("http://www.apache.org/licenses/LICENSE-2.0")),
     developers := List(Developer(
       "olafurpg",
       "Ólafur Páll Geirsson",
       "olafurpg@gmail.com",
-      url("https://geirsson.com"),
+      uri("https://geirsson.com"),
     )),
     scalaVersion := scala213,
     useSuperShell := false,
@@ -75,21 +64,19 @@ def isScala3(v: Option[(Long, Long)]): Boolean = v.exists(_._1 == 3)
 
 val unpublished = publish / skip := true
 
-// NOTE(olafur): disable Scala.js and Native settings for IntelliJ.
-val skipIdeaSetting = SettingKey[Boolean]("ide-skip-project")
-  .withRank(KeyRanks.Invisible)
 def onOtherPlatform(except: AutoPlugin*): Project => Project =
-  _.disablePlugins(MimaPlugin +: except*).settings(skipIdeaSetting := true)
+  _.disablePlugins(MimaPlugin +: except *)
 val onJS: Project => Project = onOtherPlatform()
 val onNative: Project => Project = onOtherPlatform(ScalafixPlugin)
 
 val mimaEnable = Def.settings(
   mimaBinaryIssueFilters +=
-    _root_.munit.build.Mima.languageAgnosticCompatibilityPolicy,
-  mimaPreviousArtifacts := Set(
-    if (crossPaths.value) "org.scalameta" %% moduleName.value % previousVersion
-    else "org.scalameta" % moduleName.value % previousVersion
-  ),
+    { (x: Problem) => x.matchName.exists(!_.startsWith("munit.internal.")) },
+  // the last tag, so the baseline cannot go stale; CI has to fetch tags for it
+  mimaPreviousArtifacts := previousStableVersion.value.map(v =>
+    if (crossPaths.value) "org.scalameta" %% moduleName.value % v
+    else "org.scalameta" % moduleName.value % v
+  ).toSet,
 )
 
 // The matrix supplies the Scala versions, so crossScalaVersions is gone; what
@@ -189,17 +176,17 @@ val munitOnJS: Project => Project = onJS.settings(
     List(
       dep("scalajs-test-interface"),
       dep("scalajs-junit-test-runtime"),
-      "dev.fixpoint" %% "wasi4s" % "0.1.0-wasm1-SNAPSHOT"
+      "io.github.scala-wasm" %% "wasi4s" % "0.0.1+wasi-0.2.12"
     )
   },
 )
 
 lazy val munit = projectMatrix.in(file("munit")).dependsOn(munitDiff)
-  .settings(munitSettings).jvmPlatform(allScalaVersions, Nil, munitOnJVM)
-  .jsPlatform(allScalaVersions, Nil, munitOnJS)
-  .jsPlatform(List(scala3next), nextRow, munitOnJS.settings(unpublished))
-  .nativePlatform(allScalaVersions, Nil, munitOnNative)
-  .nativePlatform(List(scala3next), nextRow, munitOnNative.settings(unpublished))
+  .settings(munitSettings).crossJvm(allScalaVersions)(munitOnJVM)
+  .crossJs(allScalaVersions)(munitOnJS)
+  .crossJs(List(scala3next), nextRow)(munitOnJS.settings(unpublished))
+  .crossNative(allScalaVersions)(munitOnNative)
+  .crossNative(List(scala3next), nextRow)(munitOnNative.settings(unpublished))
 
 lazy val munitJVM = munit.jvm(scala213)
 
@@ -230,11 +217,11 @@ val munitDiffSettings = Def.settings(
 )
 
 lazy val munitDiff = projectMatrix.in(file("munit-diff"))
-  .settings(munitDiffSettings).jvmPlatform(allScalaVersions, mimaEnable)
-  .jsPlatform(allScalaVersions, Nil, onJS)
-  .jsPlatform(List(scala3next), nextRow, onJS.settings(unpublished))
-  .nativePlatform(allScalaVersions, Nil, onNative)
-  .nativePlatform(List(scala3next), nextRow, onNative.settings(unpublished))
+  .settings(munitDiffSettings).crossJvm(allScalaVersions, ss = mimaEnable)()
+  .crossJs(allScalaVersions)(onJS)
+  .crossJs(List(scala3next), nextRow)(onJS.settings(unpublished))
+  .crossNative(allScalaVersions)(onNative)
+  .crossNative(List(scala3next), nextRow)(onNative.settings(unpublished))
 
 val testsSettings = Def.settings(
   sharedSettings,
@@ -297,7 +284,7 @@ val testsOnJS: Project => Project = onJS.settings(
           .withWitDirectory(None)
           .withWitWorld(None)
         }
-        .withModuleKind(ModuleKind.WasmComponent) 
+        .withModuleKind(ModuleKind.WasmComponent)
     } else {
       (Compile / scalaJSLinkerConfig).value
     }
@@ -306,12 +293,11 @@ val testsOnJS: Project => Project = onJS.settings(
 
 lazy val tests = projectMatrix.in(file("tests")).dependsOn(munit)
   .enablePlugins(BuildInfoPlugin).settings(testsSettings)
-  .nativePlatform(allScalaVersions, Nil, testsOnNative)
-  .nativePlatform(List(scala3next), nextRow, testsOnNative)
-  .jsPlatform(allScalaVersions, Nil, testsOnJS)
-  .jsPlatform(List(scala3next), nextRow, testsOnJS)
-  .jvmPlatform(allScalaVersions, Nil, _.settings(testsJVMSettings))
-  .disablePlugins(MimaPlugin)
+  .crossNative(allScalaVersions)(testsOnNative)
+  .crossNative(List(scala3next), nextRow)(testsOnNative)
+  .crossJs(allScalaVersions)(testsOnJS)
+  .crossJs(List(scala3next), nextRow)(testsOnJS)
+  .crossJvm(allScalaVersions, ss = testsJVMSettings)().disablePlugins(MimaPlugin)
 
 // A matrix cell per Scala version replaces `+`, so the platform-wide commands
 // are aliases over the cells rather than one cross-built project.
@@ -338,10 +324,10 @@ lazy val docs = project.in(file("munit-docs")).dependsOn(munitJVM)
 
 // Aggregate only: it builds nothing, so it has no artifact to publish and
 // nothing to check for binary compatibility.
-lazy val root = project.in(file(".")).withId("munit-root").aggregate(
-  munitDiff.projectRefs ++ munit.projectRefs ++ tests.projectRefs ++
+ lazy val root = project.in(file(".")).withId("munit-root").aggregate(
+   munitDiff.projectRefs ++ munit.projectRefs ++ tests.projectRefs ++
     Seq[ProjectReference](junit, plugin, docs)*
-).settings(
+ ).settings(
   unpublished,
   mimaPreviousArtifacts := Set.empty,
   crossScalaVersions := List(),
@@ -374,14 +360,14 @@ def roots(name: String, cfg: String, dirs: String*) = Def.setting[Seq[File]] {
 }
 
 def unmanagedMainSources(name: String, dirs: String*) = Def.settings(
-  Compile / unmanagedSourceDirectories ++= roots(name, "main", dirs*).value
+  Compile / unmanagedSourceDirectories ++= roots(name, "main", dirs *).value
 )
 
 def unmanagedTestSources(name: String, dirs: String*) = Def.settings(
-  Test / unmanagedSourceDirectories ++= roots(name, "test", dirs*).value
+  Test / unmanagedSourceDirectories ++= roots(name, "test", dirs *).value
 )
 
 def unmanagedSources(name: String, dirs: String*) = Def.settings(
-  unmanagedMainSources(name, dirs*),
-  unmanagedTestSources(name, dirs*),
+  unmanagedMainSources(name, dirs *),
+  unmanagedTestSources(name, dirs *),
 )

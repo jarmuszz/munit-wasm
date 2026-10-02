@@ -1,10 +1,12 @@
 package munit
 
+import munit.internal.PlatformCompat
+
 object ThrottleCpu {
   def run(): Unit = while (true) {
     // Some computationally intensive calculation
     1.to(1000).foreach(i => fib(i))
-    println("Loop")
+    PlatformCompat.println("Loop")
   }
 
   private final def fib(n: Int): Int =

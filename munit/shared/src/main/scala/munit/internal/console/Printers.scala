@@ -3,7 +3,7 @@ package munit.internal.console
 
 import munit.diff.console.{Printers => DiffPrinters}
 import munit.diff.{EmptyPrinter, Printer}
-import munit.internal.Compat
+import munit.internal.{Compat, PlatformCompat}
 import munit.{Clues, Location, Printable}
 
 object Printers {
@@ -13,8 +13,8 @@ object Printers {
   def log(any: Any, printer: Printer = EmptyPrinter)(implicit
       loc: Location
   ): Unit = {
-    println(loc.toString)
-    println(print(any, printer))
+    PlatformCompat.println(loc.toString)
+    PlatformCompat.println(print(any, printer))
   }
 
   /** Pretty-prints the value in a format that's optimized for producing diffs */

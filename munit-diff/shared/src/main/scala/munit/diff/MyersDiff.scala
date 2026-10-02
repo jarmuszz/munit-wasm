@@ -12,7 +12,7 @@ class MyersDiff[T](equalizer: Equalizer[T])
     try buildRevision(buildPath(original, revised), original, revised)
     catch {
       case e: DifferentiationFailedException =>
-        e.printStackTrace()
+        //PlatformCompat.printStackTrace(e)
         new munit.diff.Patch[T]()
     }
   private def buildRevision(

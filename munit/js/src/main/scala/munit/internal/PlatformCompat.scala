@@ -6,15 +6,45 @@ import sbt.testing.{EventHandler, Logger, Task, TaskDef}
 
 import java.util.concurrent.TimeoutException
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{Await, Awaitable, ExecutionContext, Future, Promise}
 import scala.scalajs.js.timers
 import scala.scalajs.reflect.Reflect
 import scala.util.control.NonFatal
 
-import dev.fixpoint.wasi4s.generated.{p2 => wasi}
+// io is shadowed by munit.internal.io :/
+import _root_.io.github.scalawasm.wasi4s.wasi.clocks
 
-object WasiPlatformCompat {
+private sealed abstract class PlatformCompatSchema {
+  def nanoTime(): Long
+  def println(msg: String): Unit
+
+  def printStackTrace(t: Throwable): Unit
+
+  val executionContext: ExecutionContext
+
+  def executeAsync(
+      task: Task,
+      eventHandler: EventHandler,
+      loggers: Array[Logger],
+  ): Future[Unit]
+
+  def waitAtMost[T](
+      startFuture: () => Future[T],
+      duration: Duration,
+      ec: ExecutionContext,
+  ): Future[T]
+
+  def setTimeout(ms: Int)(body: => Unit): () => Unit
+}
+
+private object WasiPlatformCompat extends PlatformCompatSchema {
+
+  def nanoTime() = WasmSystem.nanoTime()
+  def println(msg: String) = WasmSystem.print(msg + '\n', false)
+
+  def printStackTrace(t: Throwable) =
+    this.println(s"${t}: Stacktraces are not available on pure WebAssembly builds")
 
   val executionContext: ExecutionContext =
     scala.scalajs.concurrent.QueueExecutionContext()
@@ -36,17 +66,27 @@ object WasiPlatformCompat {
     startFuture()
 
   def setTimeout(ms: Int)(body: => Unit): () => Unit = {
-    wasi.clocks.monotonic_clock.subscribeDuration(ms.toLong * 10000000).block()
+    clocks.monotonic_clock.subscribeDuration(ms.toLong * 10000000).block()
     body
 
     () => ()
   }
 }
 
-object JSPlatformCompat {
+private object JSPlatformCompat extends PlatformCompatSchema {
+
+  def nanoTime(): Long = System.nanoTime()
+  def println(msg: String) = scala.Console.println(msg)
+  def printStackTrace(t: Throwable) = t.printStackTrace()
 
   val executionContext: ExecutionContext =
     scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
+
+  def awaitResult[T](awaitable: Awaitable[T]): T = Await
+    .result(awaitable, Duration.Inf)
+
+  // Scala.js is single threaded, so we can't block.
+  def sleep(duration: FiniteDuration): Unit = ()
 
   def executeAsync(
       task: Task,
@@ -87,47 +127,51 @@ object JSPlatformCompat {
     () => timers.clearTimeout(timeoutHandle)
   }
 }
+
 object PlatformCompat {
   import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind, ModuleKind}
 
-  val executionContext: ExecutionContext =
+  private val factory: PlatformCompatSchema =
     linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
-      WasiPlatformCompat.executionContext
+      WasiPlatformCompat: PlatformCompatSchema
     } {
-      JSPlatformCompat.executionContext
+      JSPlatformCompat
     }
+
+  def nanoTime() =
+    factory.nanoTime()
+
+  def println(msg: String) =
+    factory.println(msg)
+
+  def printStackTrace(t: Throwable) =
+    factory.printStackTrace(t)
+
+  val executionContext: ExecutionContext =
+    factory.executionContext
 
   def awaitResult[T](awaitable: Awaitable[T]): T = Await
     .result(awaitable, Duration.Inf)
+
+  // Scala.js is single threaded, so we can't block.
+  def sleep(duration: FiniteDuration): Unit = ()
 
   def executeAsync(
       task: Task,
       eventHandler: EventHandler,
       loggers: Array[Logger],
-  ): Future[Unit] = 
-    linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
-      WasiPlatformCompat.executeAsync(task, eventHandler, loggers)
-    } {
-      JSPlatformCompat.executeAsync(task, eventHandler, loggers)
-    }
+  ): Future[Unit] =
+    factory.executeAsync(task, eventHandler, loggers)
 
   def waitAtMost[T](
       startFuture: () => Future[T],
       duration: Duration,
       ec: ExecutionContext,
   ): Future[T] =
-    linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
-      WasiPlatformCompat.waitAtMost(startFuture, duration, ec)
-    } {
-      JSPlatformCompat.waitAtMost(startFuture, duration, ec)
-    }
+    factory.waitAtMost(startFuture, duration, ec)
 
-  def setTimeout(ms: Int)(body: => Unit): () => Unit = 
-    linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
-      WasiPlatformCompat.setTimeout(ms)(body)
-    } {
-      JSPlatformCompat.setTimeout(ms)(body)
-    }
+  def setTimeout(ms: Int)(body: => Unit): () => Unit =
+    factory.setTimeout(ms)(body)
 
   // Scala.js does not support looking up annotations at runtime.
   def isIgnoreSuite(cls: Class[_]): Boolean = false
@@ -161,5 +205,4 @@ object PlatformCompat {
       try buffer.mkString("\n")
       finally buffer.clear()
   }
-
 }

@@ -1,5 +1,7 @@
 package munit
 
+import munit.internal.PlatformCompat
+
 import scala.concurrent.{ExecutionContext, Future}
 
 import org.junit.runner.RunWith
@@ -26,7 +28,7 @@ abstract class Suite extends PlatformSuite {
 
   private val parasiticExecutionContext = new ExecutionContext {
     def execute(runnable: Runnable): Unit = runnable.run()
-    def reportFailure(cause: Throwable): Unit = cause.printStackTrace()
+    def reportFailure(cause: Throwable): Unit = PlatformCompat.printStackTrace(cause)
   }
   def munitExecutionContext: ExecutionContext = parasiticExecutionContext
 

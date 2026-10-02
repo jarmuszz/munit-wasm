@@ -1,12 +1,17 @@
 package munit
 
 import org.junit.experimental.categories.Category
+import munit.internal.PlatformCompat
 
 class Slow extends Tag("Slow")
 
 @Category(Array(classOf[Slow]))
 class Issue497FrameworkSuite extends FunSuite {
-  def println(msg: String): Unit = TestingConsole.out.println(msg)
+  def println(msg: String): Unit =
+    if (PlatformCompat.isJS)
+      PlatformCompat.println(msg)
+    else
+      TestingConsole.out.println(msg)
   val myFixture: Fixture[Unit] = new Fixture[Unit]("myFixture") {
     def apply(): Unit = println("### myFixture apply() ###")
 

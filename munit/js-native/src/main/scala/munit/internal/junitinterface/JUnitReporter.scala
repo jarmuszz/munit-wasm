@@ -59,7 +59,7 @@ final class JUnitReporter(
   }
 
   def reportTestSuiteStarted(): Unit = {
-    suiteStartNanos = System.nanoTime
+    suiteStartNanos = PlatformCompat.nanoTime()
     if (settings.shouldLogInfo)
       logEvent(Info, color = AnsiColors.CYAN, fq = true)("Test run", " started")
     if (settings.shouldLogDebug)
@@ -67,7 +67,7 @@ final class JUnitReporter(
   }
 
   def reportTestSuiteFinished(): Unit = if (settings.shouldLogInfo) {
-    val nanos = System.nanoTime - suiteStartNanos
+    val nanos = PlatformCompat.nanoTime() - suiteStartNanos
     logEvent(Info, color = AnsiColors.GREEN, fq = true)(
       suffix = ": finished",
       nanos = nanos,
@@ -112,7 +112,7 @@ final class JUnitReporter(
       method,
       AnsiColors.YELLOW,
       fq = method.isEmpty,
-    )("==> i", suffixed + " ignored", nanos = System.nanoTime - suiteStartNanos)
+    )("==> i", suffixed + " ignored", nanos = PlatformCompat.nanoTime() - suiteStartNanos)
     emitEvent(method, Status.Ignored, None, 0)
   }
 
@@ -182,11 +182,11 @@ final class JUnitReporter(
     else logNonSbt(filterAnsi(s, loggers: _*))
 
   private def logNonSbt(message: String): Unit =
-    if (buffer eq null) println(message) else buffer.append(message)
+    if (buffer eq null) PlatformCompat.println(message) else buffer.append(message)
 
   private[internal] def flush(): Unit = if (buffer ne null) {
     val out = buffer.flush()
-    if (out.nonEmpty) println(out)
+    if (out.nonEmpty) PlatformCompat.println(out)
   }
 
   private def filterAnsi(s: String, loggers: Logger*): String =
