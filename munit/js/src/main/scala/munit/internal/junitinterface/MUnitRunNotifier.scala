@@ -5,8 +5,6 @@ import scala.collection.mutable
 import org.junit.runner.notification.RunNotifier
 import org.junit.runner.{Description, notification}
 
-import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind, ModuleKind}
-
 import munit.internal.PlatformCompat
 
 class MUnitRunNotifier(reporter: JUnitReporter) extends RunNotifier {
