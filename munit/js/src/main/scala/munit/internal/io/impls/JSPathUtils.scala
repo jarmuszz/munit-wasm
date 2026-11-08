@@ -22,7 +22,7 @@ private[internal] object JSPathUtils extends PathUtilsImpl {
     case None => filename.startsWith("/")
   }
 
-  def dirname(filename: String): String = path match {
+  def getParent(filename: String): String = path match {
     case Some(p) => p.dirname(filename).asInstanceOf[String]
     case None => throw new UnsupportedOperationException(
         "Path.getParent() is only supported in Node.js"

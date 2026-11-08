@@ -23,7 +23,7 @@ case class MunitPath(filename: String) {
     filename.split(escapedSeparator).lift(adjustIndex(index))
       .getOrElse(throw new IllegalArgumentException)
   )
-  def getParent: MunitPath = MunitPath(PathUtils.dirname(filename))
+  def getParent: MunitPath = MunitPath(PathUtils.getParent(filename))
 
   def toAbsolutePath: MunitPath =
     if (isAbsolute) this else MunitPath.workingDirectory.resolve(this)

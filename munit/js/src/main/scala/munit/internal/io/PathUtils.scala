@@ -7,7 +7,7 @@ private[internal] trait PathUtilsImpl {
   def separator: String
   def pathSeparator: String
   def isAbsolute(path: String): Boolean
-  def dirname(path: String): String
+  def getParent(path: String): String
   def basename(path: String): String
   def normalize(path: String): String
   def relativize(base: String, other: String): String
@@ -27,7 +27,7 @@ object PathUtils {
   def separator: String = impl.separator
   def pathSeparator: String = impl.pathSeparator
   def isAbsolute(path: String): Boolean = impl.isAbsolute(path)
-  def dirname(path: String): String = impl.dirname(path)
+  def getParent(path: String): String = impl.getParent(path)
   def basename(path: String): String = impl.basename(path)
   def normalize(path: String): String = impl.normalize(path)
   def relativize(base: String, other: String): String =
