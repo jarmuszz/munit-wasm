@@ -5,22 +5,24 @@ import _root_.io.github.scalawasm.wasi4s.wasi.cli.stdout.getStdout
 
 private object WasiPrinter {
   val stdout = getStdout()
+  val nl = Array('\n'.toByte)
 
   @scala.annotation.tailrec
-  def doPrint(x: Array[Byte]): Unit =
-    if (x.size <= 4096) {
+  def doPrintln(x: Array[Byte]): Unit =
+    if (x.size <= 4095) {
       stdout.blockingWriteAndFlush(x)
+      stdout.blockingWriteAndFlush(nl)
     } else {
       val (lhs, rhs) = x.splitAt(4096)
       stdout.blockingWriteAndFlush(lhs)
-      doPrint(rhs)
+      doPrintln(rhs)
     }
 }
 
 class PrintStream(out: OutputStream) {
   def println(x: String): Unit =
     linkTimeIf(moduleKind == ModuleKind.WasmComponent) {
-      WasiPrinter.doPrint(x.getBytes)
+      WasiPrinter.doPrintln(x.getBytes)
     } {
       scala.Console.println(x)
     }
