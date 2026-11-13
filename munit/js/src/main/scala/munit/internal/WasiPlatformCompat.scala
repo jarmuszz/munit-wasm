@@ -13,23 +13,26 @@ private[internal] object WasiPlatformCompat extends PlatformCompatImpl {
   private lazy val stdout = cli.stdout.getStdout()
   private lazy val stderr = cli.stderr.getStderr()
 
-  def print(s: String): Unit = {
+  private def print(s: String, isErr: Boolean): Unit = {
+    val out = if (isErr) stderr else stdout
+
     // blocking-write-and-flush will trap for more than 4096 bytes
     val maxBytes = 4096
     var arr: Array[Byte] = s.getBytes()
     while (arr.size > maxBytes) {
       val (l, r) = arr.splitAt(maxBytes)
-      stdout.blockingWriteAndFlush(l)
+      out.blockingWriteAndFlush(l)
       arr = r
     }
 
-    if (arr.size > 0) stdout.blockingWriteAndFlush(arr)
+    if (arr.size > 0) out.blockingWriteAndFlush(arr)
   }
 
+  def print(s: String): Unit = print(s, false)
   def println(s: String): Unit = print(s + '\n')
 
   def printStackTrace(t: Throwable): Unit =
-    println(s"$t: Stacktraces are not available on pure WebAssembly builds")
+    print(s"$t: Stacktraces are not available on pure WebAssembly builds\n", isErr = true)
 
   def nanoTime(): Long =
     clocks.monotonic_clock.now()
