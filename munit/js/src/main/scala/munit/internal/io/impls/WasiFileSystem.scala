@@ -23,8 +23,7 @@ private[internal] object WasiFileSystem extends FileSystemImpl {
     descriptor.getType() match {
       case ok: Ok[DescriptorType] =>
         val tpe = ok.value
-        // should we count unknown as a file?
-        tpe != DescriptorType.Directory || tpe != DescriptorType.Unknown
+        tpe == DescriptorType.RegularFile
       case _: Err[_] => false
     }
   ).getOrElse(false)
