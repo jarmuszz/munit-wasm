@@ -61,7 +61,8 @@ private[internal] object WasiFileSystem extends FileSystemImpl {
 
   private def getDescriptor(path: String): Either[Exception, Descriptor] =
     WasiPathUtils.getRoot(path) match {
-      case None => throw new IllegalArgumentException
+      case None =>
+        Left(new IllegalArgumentException(s"Path '$path' does not have a root"))
       case Some((preopen, tail)) =>
         val preopens = wasi.filesystem.preopens.getDirectories()
         preopens.find(_._2 == preopen).toRight(new IOException(
