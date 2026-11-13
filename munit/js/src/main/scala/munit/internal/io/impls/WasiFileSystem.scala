@@ -19,23 +19,19 @@ private[internal] object WasiFileSystem extends FileSystemImpl {
 
   def exists(path: String): Boolean = getDescriptor(path).isRight
 
-  def isFile(path: String): Boolean = getDescriptor(path).map(descriptor =>
+  private def isType(path: String, tpe: DescriptorType): Boolean = getDescriptor(path).map(descriptor =>
     descriptor.getType() match {
-      case ok: Ok[DescriptorType] =>
-        val tpe = ok.value
-        tpe == DescriptorType.RegularFile
+      case ok: Ok[DescriptorType] => ok.value == tpe
       case _: Err[_] => false
     }
   ).getOrElse(false)
 
-  def isDirectory(path: String): Boolean = getDescriptor(path).map(descriptor =>
-    descriptor.getType() match {
-      case ok: Ok[DescriptorType] => ok.value == DescriptorType.Directory
-      case _: Err[_] => false
-    }
-  ).getOrElse(false)
 
-  def doRead(
+  def isFile(path: String): Boolean = isType(path, DescriptorType.RegularFile)
+
+  def isDirectory(path: String): Boolean = isType(path, DescriptorType.Directory)
+
+  private def doRead(
       stream: InputStream,
       acc: ArrayBuilder[Byte],
   ): Either[IOException, Array[Byte]] = stream.blockingRead(4096) match {
@@ -47,9 +43,9 @@ private[internal] object WasiFileSystem extends FileSystemImpl {
   def readAllBytes(path: String): Array[Byte] = getDescriptor(path)
     .flatMap(descriptor =>
       descriptor.readViaStream(0) match {
-        case err: Err[ErrorCode] => Left(new IOException(
-            s"Could not create input-stream: ${err.value.toString}"
-          ))
+        case err: Err[ErrorCode] =>
+          val msg = err.value.toString
+          Left(new IOException(s"Could not create input-stream: $msg}"))
         case ok: Ok[InputStream] =>
           val stream = ok.value
           doRead(stream, ArrayBuilder.make)
@@ -65,19 +61,23 @@ private[internal] object WasiFileSystem extends FileSystemImpl {
         Left(new IllegalArgumentException(s"Path '$path' does not have a root"))
       case Some((preopen, tail)) =>
         val preopens = wasi.filesystem.preopens.getDirectories()
-        preopens.find(_._2 == preopen).toRight(new IOException(
-          s"Could not find preopen:'$preopen'"
-        )).flatMap(
-          _._1.openAt(
-            pathFlags = PathFlags.symlinkFollow,
-            path = tail,
-            openFlags = OpenFlags.apply(0),
-            flags = DescriptorFlags.read
-          ) match {
-            case ok: Ok[Descriptor] => Right(ok.value)
-            case err: Err[ErrorCode] => Left(new IOException(err.value.toString()))
+        preopens.find(_._2 == preopen)
+          .toRight(new IOException(s"Could not find preopen:'$preopen'"))
+          .flatMap { tuple =>
+            val d = tuple._1
+            val result = d.openAt(
+              pathFlags = PathFlags.symlinkFollow,
+              path = tail,
+              openFlags = OpenFlags.apply(0),
+              flags = DescriptorFlags.read,
+            )
+
+            result match {
+              case ok: Ok[Descriptor] => Right(ok.value)
+              case err: Err[ErrorCode] =>
+                Left(new IOException(err.value.toString()))
+            }
           }
-        )
     }
 
   private def getParent(path: String): Either[Exception, Descriptor] =
