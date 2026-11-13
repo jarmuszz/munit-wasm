@@ -47,20 +47,12 @@ private[internal] object WasiPlatformCompat extends PlatformCompatImpl {
   def sleep(duration: FiniteDuration): Unit =
     clocks.monotonic_clock.subscribeDuration(duration.toNanos).block()
 
-  def executeAsync(
-      task: Task,
-      eventHandler: EventHandler,
-      loggers: Array[Logger],
-  ): Future[Unit] = {
-    task.execute(eventHandler, loggers, _ => ())
-    Future.successful(())
-  }
-
   def waitAtMost[T](
       startFuture: () => Future[T],
       duration: Duration,
       ec: ExecutionContext,
   ): Future[T] =
+    // WASI does not provide any way to timeout a future
     startFuture()
 
   def setTimeout(ms: Int)(body: => Unit): () => Unit = {

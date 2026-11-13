@@ -29,16 +29,6 @@ private[internal] object JSPlatformCompat extends PlatformCompatImpl {
   // Scala.js is single threaded, so we can't block.
   def sleep(duration: FiniteDuration): Unit = ()
 
-  def executeAsync(
-      task: Task,
-      eventHandler: EventHandler,
-      loggers: Array[Logger],
-  ): Future[Unit] = {
-    val p = Promise[Unit]()
-    task.execute(eventHandler, loggers, _ => p.success(()))
-    p.future
-  }
-
   def waitAtMost[T](
       startFuture: () => Future[T],
       duration: Duration,

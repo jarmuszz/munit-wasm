@@ -5,7 +5,7 @@ import munit.MUnitRunner
 import sbt.testing.{EventHandler, Logger, Task, TaskDef}
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.concurrent.{Awaitable, ExecutionContext, Future}
+import scala.concurrent.{Awaitable, ExecutionContext, Future, Promise}
 import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind, ModuleKind}
 import scala.scalajs.reflect.Reflect
 
@@ -25,12 +25,6 @@ private[internal] abstract class PlatformCompatImpl {
   def awaitResult[T](awaitable: Awaitable[T]): T
 
   def sleep(duration: FiniteDuration): Unit
-
-  def executeAsync(
-      task: Task,
-      eventHandler: EventHandler,
-      loggers: Array[Logger],
-  ): Future[Unit]
 
   def waitAtMost[T](
       startFuture: () => Future[T],
@@ -70,8 +64,11 @@ object PlatformCompat {
       task: Task,
       eventHandler: EventHandler,
       loggers: Array[Logger],
-  ): Future[Unit] =
-    impl.executeAsync(task, eventHandler, loggers)
+  ): Future[Unit] = {
+    val p = Promise[Unit]()
+    task.execute(eventHandler, loggers, _ => p.success(()))
+    p.future
+  }
 
   def waitAtMost[T](
       startFuture: () => Future[T],
