@@ -65,7 +65,7 @@ private[internal] object WasiPlatformCompat extends PlatformCompatImpl {
 
   def setTimeout(ms: Int)(body: => Unit): () => Unit = {
     // WASI durations are expressed in nanoseconds.
-    clocks.monotonic_clock.subscribeDuration(ms.toLong * 100000L).block()
+    clocks.monotonic_clock.subscribeDuration(ms.toLong * 1000000L).block()
     body
 
     () => ()
