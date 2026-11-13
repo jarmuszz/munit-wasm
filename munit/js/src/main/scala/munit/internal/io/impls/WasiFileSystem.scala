@@ -71,7 +71,7 @@ private[internal] object WasiFileSystem extends FileSystemImpl {
             pathFlags = PathFlags.symlinkFollow,
             path = tail,
             openFlags = OpenFlags.apply(0),
-            flags = DescriptorFlags.read | DescriptorFlags.write,
+            flags = DescriptorFlags.read
           ) match {
             case ok: Ok[Descriptor] => Right(ok.value)
             case err: Err[ErrorCode] => Left(new IOException(err.value.toString()))
